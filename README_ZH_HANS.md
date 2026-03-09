@@ -36,7 +36,20 @@ Claude Code ──[Anthropic API]──▶ Adapter (localhost) ─┤
 
 ## 快速开始
 
-### 1. 编译
+### 1. 安装
+
+**方式 A：下载预编译文件（无需安装 Rust）**
+
+从 [GitHub Releases](https://github.com/Jakevin/CC-Adapter/releases) 下载最新版本，解压即可使用：
+
+```bash
+tar xzf claude-adapter-<platform>.tar.gz
+cd claude-adapter
+```
+
+压缩包内含可执行文件与 `config-example.toml` 模板。
+
+**方式 B：从源码编译**
 
 ```bash
 cargo build --release

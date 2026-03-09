@@ -37,7 +37,20 @@ The adapter runs a local HTTP server that:
 
 ## Quick Start
 
-### 1. Build
+### 1. Install
+
+**Option A: Download pre-built binary (no Rust required)**
+
+Download the latest release from [GitHub Releases](https://github.com/Jakevin/CC-Adapter/releases), extract and you're ready to go:
+
+```bash
+tar xzf claude-adapter-<platform>.tar.gz
+cd claude-adapter
+```
+
+The archive includes the binary and a `config-example.toml` template.
+
+**Option B: Build from source**
 
 ```bash
 cargo build --release
