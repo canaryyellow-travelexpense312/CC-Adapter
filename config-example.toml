@@ -1,0 +1,49 @@
+[server]
+host = "127.0.0.1"
+port = 8080
+# 日誌等級：trace, debug, info, warn, error
+# Log level: trace, debug, info, warn, error
+# 也可透過 CLI --log-level 覆寫，或透過環境變數 RUST_LOG 設定
+# Can also be overridden via CLI --log-level, or via RUST_LOG env var
+log_level = "info"
+# 日誌檔案路徑（選填）：設定後日誌會同時寫入此檔案，適合 debug 等級時保存完整內容
+# Log file path (optional): when set, logs are also written to this file — useful for preserving full debug output
+log_file = "adapter.log"
+
+[provider]
+# 供應商類型："openai"、"grok" 或 "chatgpt"
+# Provider type: "openai", "grok", or "chatgpt"
+#
+# 使用 "chatgpt" 時不需要 api_key，改用 OAuth 認證
+# When using "chatgpt", api_key is not needed — OAuth is used instead
+# 請先執行 `claude-adapter login` 完成 OAuth 登入
+# Run `claude-adapter login` to complete OAuth login first
+type = "openai"
+# API 金鑰（也可透過環境變數 ADAPTER_API_KEY 設定）
+# API key (can also be set via ADAPTER_API_KEY env var)
+# 使用 chatgpt 供應商時不需要此設定
+# Not required when using chatgpt provider
+api_key = ""
+# 供應商 API 的 Base URL
+# Base URL for the provider API
+# OpenAI:  https://api.openai.com/v1
+# Grok:    https://api.x.ai/v1
+# ChatGPT: （不需要設定，固定為 chatgpt.com/backend-api）
+# ChatGPT: (not needed, fixed to chatgpt.com/backend-api)
+base_url = "https://opencode.ai/zen/go/v1"
+# 供應商是否支援串流 API（若為 false，Adapter 會模擬 SSE 串流回傳給 Claude Code）
+# Whether the provider supports streaming API (if false, Adapter simulates SSE streaming back to Claude Code)
+supports_streaming = true
+
+[models]
+# 找不到顯式映射時使用的預設模型
+# Default model to use when no explicit mapping is found
+# ChatGPT / OpenAI 建議使用：gpt-5.4
+# Recommended for ChatGPT / OpenAI: gpt-5.4
+default = "gpt-5.4"
+
+# 顯式模型映射（Anthropic 模型名稱 → 供應商模型名稱）
+# Explicit model mappings (Anthropic model name -> Provider model name)
+# [models.mapping]
+# "claude-sonnet-4-6" = "gpt-5.4"
+# "claude-opus-4-6" = "gpt-5.4"

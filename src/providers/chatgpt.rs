@@ -1,0 +1,142 @@
+use anyhow::{Context, Result};
+use reqwest::Client;
+use tokio::sync::RwLock;
+use tracing::{debug, info, warn};
+
+use crate::auth::oauth;
+use crate::auth::token_store::{self, TokenData};
+use crate::types::responses::ResponsesRequest;
+
+const CODEX_BASE_URL: &str = "https://chatgpt.com/backend-api";
+
+/// ChatGPT OAuth 供應商：透過 ChatGPT Plus/Pro 訂閱認證存取 Codex API
+/// ChatGPT OAuth provider: access Codex API via ChatGPT Plus/Pro subscription authentication
+pub struct ChatGPTProvider {
+    client: Client,
+    token: RwLock<TokenData>,
+    account_id: RwLock<String>,
+}
+
+impl ChatGPTProvider {
+    /// 建構 ChatGPTProvider，從 token store 載入認證資訊
+    /// Construct ChatGPTProvider, loading auth info from token store
+    pub async fn new() -> Result<Self> {
+        let token_data = token_store::load()?
+            .context(
+                "未找到 OAuth token，請先執行 `claude-adapter login` / \
+                 No OAuth token found, please run `claude-adapter login` first",
+            )?;
+
+        let account_id = oauth::extract_account_id(&token_data.access_token)
+            .unwrap_or_default();
+
+        if account_id.is_empty() {
+            warn!(
+                "無法從 token 中提取 account ID，部分功能可能受影響 / \
+                 Could not extract account ID from token, some features may be affected"
+            );
+        }
+
+        info!(
+            account_id = %if account_id.is_empty() { "<unknown>" } else { &account_id },
+            "ChatGPT Provider 已初始化 / ChatGPT Provider initialized"
+        );
+
+        Ok(Self {
+            client: Client::new(),
+            token: RwLock::new(token_data),
+            account_id: RwLock::new(account_id),
+        })
+    }
+
+    /// 確保 token 未過期，若已過期則自動刷新
+    /// Ensure the token is not expired; automatically refresh if it is
+    async fn ensure_valid_token(&self) -> Result<TokenData> {
+        {
+            let token = self.token.read().await;
+            if !token.is_expired() {
+                return Ok(token.clone());
+            }
+        }
+
+        info!("Token 已過期，正在刷新... / Token expired, refreshing...");
+
+        let current = self.token.read().await.clone();
+        let new_token = oauth::refresh_token(&current.refresh_token).await?;
+
+        token_store::save(&new_token)?;
+
+        if let Ok(new_account_id) = oauth::extract_account_id(&new_token.access_token) {
+            *self.account_id.write().await = new_account_id;
+        }
+
+        *self.token.write().await = new_token.clone();
+
+        info!("Token 刷新成功 / Token refreshed successfully");
+        Ok(new_token)
+    }
+
+    /// 傳送請求至 Codex API 並回傳 SSE 串流的原始文字
+    /// Send a request to the Codex API and return the raw SSE stream text
+    pub async fn send_request(&self, request: &ResponsesRequest) -> Result<String> {
+        let token = self.ensure_valid_token().await?;
+        let account_id = self.account_id.read().await.clone();
+
+        let url = format!("{}/codex/responses", CODEX_BASE_URL);
+
+        debug!(model = %request.model, url = %url, "轉發請求至 ChatGPT Codex / Forwarding request to ChatGPT Codex");
+
+        // debug 等級時印出即將送出的請求 JSON
+        // Print the outgoing request JSON at debug level
+        if let Ok(json) = serde_json::to_string_pretty(request) {
+            debug!("送出請求內容 / Outgoing request body:\n{}", json);
+        }
+
+        let mut req_builder = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", token.access_token))
+            .header("Content-Type", "application/json")
+            .header("Accept", "text/event-stream")
+            .header("OpenAI-Beta", "responses=experimental")
+            .header("originator", "codex_cli_rs");
+
+        if !account_id.is_empty() {
+            req_builder = req_builder.header("chatgpt-account-id", &account_id);
+        }
+
+        let resp = req_builder
+            .json(request)
+            .send()
+            .await
+            .context("無法傳送請求至 ChatGPT Codex / Failed to send request to ChatGPT Codex")?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp
+                .text()
+                .await
+                .unwrap_or_else(|_| "無法讀取錯誤回應 / Failed to read error body".to_string());
+            anyhow::bail!(
+                "ChatGPT Codex 回傳 HTTP {} / ChatGPT Codex returned HTTP {}: {}",
+                status.as_u16(),
+                status.as_u16(),
+                body
+            );
+        }
+
+        let body = resp
+            .text()
+            .await
+            .context("無法讀取 ChatGPT Codex 回應 / Failed to read ChatGPT Codex response")?;
+
+        info!(
+            status = %status,
+            body_len = body.len(),
+            "收到 ChatGPT Codex 回應 / Received response from ChatGPT Codex"
+        );
+        debug!(body = %body, "ChatGPT Codex 回應內容 / ChatGPT Codex response body");
+
+        Ok(body)
+    }
+}

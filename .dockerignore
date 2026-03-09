@@ -1,0 +1,5 @@
+target/
+adapter.log
+.git/
+.gitignore
+README.md
