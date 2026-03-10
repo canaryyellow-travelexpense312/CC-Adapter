@@ -192,7 +192,8 @@ ADAPTER_API_KEY=sk-xxx claude-adapter serve --config ~/.config/claude-adapter/co
 The adapter will:
 1. Start listening on `http://127.0.0.1:8080`
 2. Automatically configure `~/.claude/settings.json` with `ANTHROPIC_BASE_URL`
-3. Restore the original settings when stopped (Ctrl+C)
+3. Hot-reload `config.toml` changes automatically while running
+4. Restore the original settings when stopped (Ctrl+C / SIGTERM)
 
 ## Step 4: Verify
 
@@ -214,6 +215,7 @@ No extra environment variables needed. The adapter auto-configured everything in
 ## Troubleshooting
 
 - **"connection refused"**: Adapter is not running. Start it first (Step 3).
+- **Config changes not taking effect immediately**: Most environments hot-reload `config.toml` automatically. If filesystem watching is unavailable, the adapter will fall back to polling.
 - **API key errors**: Check that `api_key` in config.toml is correct, or set `ADAPTER_API_KEY` env var.
 - **ChatGPT token expired**: Run `claude-adapter login` again.
 - **Port conflict**: Change `port` in config.toml or use `--port <PORT>` flag.

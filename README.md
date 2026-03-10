@@ -34,6 +34,8 @@ The adapter runs a local HTTP server that:
 - Image inputs (base64)
 - Configurable model mapping
 - SSE streaming simulation (for non-streaming providers)
+- Real-time config hot reload with filesystem watcher
+- Graceful shutdown with settings restoration on SIGINT / SIGTERM
 - OAuth authentication for ChatGPT (PKCE flow)
 
 ## Installation for AI Agents
