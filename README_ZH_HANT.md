@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README_ZH_HANS.md)
 
-以 Rust 開發的 API 轉接器，透過在 Anthropic Messages API 與供應商特定 API 格式之間進行轉換，讓 **Claude Code** 能夠使用其他 LLM 供應商（OpenAI、Grok/xAI、ChatGPT Plus/Pro）。
+以 Rust 開發的 API 轉接器，透過在 Anthropic Messages API 與供應商特定 API 格式之間進行轉換，讓 **Claude Code** 能夠使用其他 LLM 供應商（OpenAI、Grok/xAI、ChatGPT Plus/Pro），並支援同時配置多個 Provider、依模型名稱路由到不同後端。
 
 ## 運作原理
 
@@ -24,6 +24,7 @@ Claude Code ──[Anthropic API]──▶ Adapter (localhost) ─┤
 - **Grok (xAI)** — 透過 API 金鑰 + Chat Completions API
 - **ChatGPT Plus/Pro** — 透過 OAuth + Responses API（Codex 後端）
 - **任何 OpenAI 相容 API** — 透過 API 金鑰
+- **Anthropic 相容 API** — 與 Anthropic Messages API 相同，只是 `base_url` 不同
 
 **支援功能：**
 - 文字訊息與多輪對話
@@ -74,9 +75,61 @@ cargo build --release
 
 ### 2. 配置
 
-編輯 `config.toml` 或使用 CLI 參數 / 環境變數：
+`config.toml` 支援同時定義多個 Provider，並用 `models.routing` 將不同的 Claude 模型名稱路由到對應的供應商與模型。
 
-#### 用於 OpenAI / Grok（API 金鑰）
+#### 多供應商配置（建議，v0.3.0+）
+
+```toml
+[server]
+host = "127.0.0.1"
+port = 8080
+log_level = "info"
+log_file = "adapter.log"
+
+[providers.chatgpt]
+type = "chatgpt"
+# ChatGPT 使用 OAuth，不需要 api_key / base_url
+
+[providers.openai-compatible]
+type = "openai"
+# API 金鑰（也可透過環境變數 ADAPTER_API_KEY 設定）
+api_key = "sk-your-openai-or-grok-key"
+# OpenAI / Grok / 其他相容 API 的 Base URL
+base_url = "https://api.openai.com/v1"
+# 後端是否回傳串流 SSE（通常建議關閉，由 Adapter 統一模擬 SSE）
+supports_streaming = false
+
+[providers.opencode-go-anthropic]
+type = "anthropic-compatible"
+api_key = "sk-your-key"
+# Anthropic 相容 Messages API 的 Base URL
+base_url = "https://opencode.ai/zen/go"
+# 多數 Anthropic 相容後端支援非串流 JSON 回應，建議維持 false
+supports_streaming = false
+
+[models]
+# 找不到路由時的預設供應商與模型
+default_provider = "chatgpt"
+default_model = "gpt-5.4"
+
+# 模型路由表：Anthropic 模型名稱 → 供應商 + 模型
+# 支援「最長前綴比對」，適合帶有日期後綴的模型名稱。
+[models.routing]
+"claude-sonnet-4-6" = { provider = "openai-compatible",        model = "gpt-4.1" }
+"claude-opus-4-6"   = { provider = "chatgpt",                  model = "gpt-5.4" }
+"claude-haiku-4-5"  = { provider = "opencode-go-anthropic",    model = "MiniMax-M2.5" }
+```
+
+`models.routing` 解析規則：
+
+1. 先嘗試完整模型名稱精確比對（例如 `"claude-opus-4-6"`）。
+2. 若無精確比對，則尋找「最長前綴 key」，滿足 `incoming_model.starts_with(key)`。  
+   例如 key 為 `"claude-haiku-4-5"`，可匹配 `"claude-haiku-4-5-20251001"`。
+3. 若仍無對應，則回退到 `default_provider` + `default_model`。
+
+#### 舊版單一 Provider 配置（仍然支援）
+
+若場景簡單，也可以沿用舊版的單一 `[provider]` + `models.mapping` 格式：
 
 ```toml
 [server]
@@ -84,7 +137,7 @@ host = "127.0.0.1"
 port = 8080
 
 [provider]
-type = "openai"
+type = "openai"        # 或 "grok" / "chatgpt"
 api_key = "sk-your-api-key-here"
 base_url = "https://api.openai.com/v1"
 
@@ -93,22 +146,10 @@ default = "gpt-5.4"
 
 [models.mapping]
 "claude-sonnet-4-6" = "gpt-5.4"
-"claude-opus-4-6" = "gpt-5.4"
+"claude-opus-4-6"   = "gpt-5.4"
 ```
 
-#### 用於 ChatGPT Plus/Pro（OAuth）
-
-```toml
-[server]
-host = "127.0.0.1"
-port = 8080
-
-[provider]
-type = "chatgpt"
-
-[models]
-default = "gpt-5.4"
-```
+> **註：** 內部實作上，Adapter 會將新舊兩種格式統一轉換為同一種「多 Provider 結構」，所以可以逐步遷移。
 
 ### 3. 登入（僅限 ChatGPT 訂閱使用者）
 
@@ -298,7 +339,8 @@ curl http://127.0.0.1:8080/health
 
 ## 目前限制
 
-- 延伸思考區塊會轉換為帶 `<thinking>` 標籤的文字。
+- 來自第三方 Anthropic 相容 API 的 thinking 區塊會作為正式的 `thinking` 內容區塊透過 SSE 轉發，  
+  依 UI 實作不同，可能會選擇隱藏或以特定方式顯示，不再當作一般文字插入回應。
 - ChatGPT OAuth 使用與官方 Codex CLI 相同的流程，僅限個人使用。
 
 ## 專案結構
@@ -306,15 +348,15 @@ curl http://127.0.0.1:8080/health
 ```
 src/
 ├── main.rs                       # 入口、CLI 子命令、伺服器啟動
-├── config.rs                     # TOML 配置 + clap CLI 解析
-├── server.rs                     # Axum 路由處理、多供應商分派
+├── config.rs                     # TOML 配置 + clap CLI 解析，多供應商與模型路由
+├── server.rs                     # Axum 路由處理、多供應商分派與熱重載
 ├── error.rs                      # 統一錯誤型別（Anthropic 格式）
 ├── auth/
 │   ├── oauth.rs                  # PKCE OAuth 流程（ChatGPT 登入）
 │   ├── callback_server.rs        # 本地 OAuth 回調伺服器
 │   └── token_store.rs            # Token 持久化與過期檢查
 ├── types/
-│   ├── anthropic.rs              # Anthropic API serde 型別
+│   ├── anthropic.rs              # Anthropic API serde 型別（請求 + 回應，含 thinking/tool_use/text）
 │   ├── openai.rs                 # OpenAI Chat Completions API serde 型別
 │   └── responses.rs              # OpenAI Responses API serde 型別
 ├── convert/
@@ -323,8 +365,9 @@ src/
 │   ├── request_responses.rs      # Anthropic → Responses API 請求轉換
 │   └── response_responses.rs     # Responses API → Anthropic 回應轉換
 └── providers/
-    ├── openai.rs                 # OpenAI/Grok HTTP 客戶端（API 金鑰）
-    └── chatgpt.rs                # ChatGPT Codex HTTP 客戶端（OAuth）
+    ├── openai.rs                 # OpenAI/Grok/OpenAI 相容 HTTP 客戶端（Chat Completions）
+    ├── chatgpt.rs                # ChatGPT Codex HTTP 客戶端（Responses API + OAuth）
+    └── anthropic.rs              # Anthropic 相容 HTTP 客戶端（Messages API 直通轉發）
 ```
 
 ## 合規聲明

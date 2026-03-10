@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README_ZH_HANT.md)
 
-基于 Rust 开发的 API 转接器，通过在 Anthropic Messages API 与供应商特定 API 格式之间进行转换，让 **Claude Code** 能够使用其他 LLM 供应商（OpenAI、Grok/xAI、ChatGPT Plus/Pro）。
+基于 Rust 开发的 API 转接器，通过在 Anthropic Messages API 与供应商特定 API 格式之间进行转换，让 **Claude Code** 能够使用其他 LLM 供应商（OpenAI、Grok/xAI、ChatGPT Plus/Pro），并支持同时配置多个 Provider，按模型名称路由到不同后端。
 
 ## 工作原理
 
@@ -24,6 +24,7 @@ Claude Code ──[Anthropic API]──▶ Adapter (localhost) ─┤
 - **Grok (xAI)** — 通过 API 密钥 + Chat Completions API
 - **ChatGPT Plus/Pro** — 通过 OAuth + Responses API（Codex 后端）
 - **任何 OpenAI 兼容 API** — 通过 API 密钥
+- **Anthropic 兼容 API** — 与 Anthropic Messages API 相同，只是 `base_url` 不同
 
 **支持功能：**
 - 文本消息与多轮对话
@@ -74,9 +75,61 @@ cargo build --release
 
 ### 2. 配置
 
-编辑 `config.toml` 或使用 CLI 参数 / 环境变量：
+`config.toml` 支持同时定义多个 Provider，并用 `models.routing` 将不同 Claude 模型名称路由到对应的供应商与模型。
 
-#### 用于 OpenAI / Grok（API 密钥）
+#### 多 Provider 配置（推荐，v0.3.0+）
+
+```toml
+[server]
+host = "127.0.0.1"
+port = 8080
+log_level = "info"
+log_file = "adapter.log"
+
+[providers.chatgpt]
+type = "chatgpt"
+# ChatGPT 使用 OAuth，不需要 api_key / base_url
+
+[providers.openai-compatible]
+type = "openai"
+# API 密钥（也可通过环境变量 ADAPTER_API_KEY 设置）
+api_key = "sk-your-openai-or-grok-key"
+# OpenAI / Grok / 其他兼容 API 的 Base URL
+base_url = "https://api.openai.com/v1"
+# 后端是否返回流式 SSE（通常建议关闭，由 Adapter 统一模拟 SSE）
+supports_streaming = false
+
+[providers.opencode-go-anthropic]
+type = "anthropic-compatible"
+api_key = "sk-your-key"
+# Anthropic 兼容 Messages API 的 Base URL
+base_url = "https://opencode.ai/zen/go"
+# 大多数 Anthropic 兼容后端支持非流式 JSON 响应，建议保持 false
+supports_streaming = false
+
+[models]
+# 找不到路由时使用的默认供应商和默认模型
+default_provider = "chatgpt"
+default_model = "gpt-5.4"
+
+# 模型路由表：Anthropic 模型名称 → 供应商 + 模型
+# 支持「最长前缀匹配」，适合名称中带日期后缀的模型。
+[models.routing]
+"claude-sonnet-4-6" = { provider = "openai-compatible",        model = "gpt-4.1" }
+"claude-opus-4-6"   = { provider = "chatgpt",                  model = "gpt-5.4" }
+"claude-haiku-4-5"  = { provider = "opencode-go-anthropic",    model = "MiniMax-M2.5" }
+```
+
+`models.routing` 解析规则：
+
+1. 先尝试完整模型名称精确匹配（例如 `"claude-opus-4-6"`）。
+2. 若没有精确匹配，则寻找「最长前缀 key」，满足 `incoming_model.starts_with(key)`。  
+   例如 key 为 `"claude-haiku-4-5"`，可匹配 `"claude-haiku-4-5-20251001"`。
+3. 若仍无匹配，则回退到 `default_provider` + `default_model`。
+
+#### 旧版单 Provider 配置（仍然支持）
+
+如果场景比较简单，也可以继续使用旧版的单一 `[provider]` + `models.mapping` 格式：
 
 ```toml
 [server]
@@ -84,7 +137,7 @@ host = "127.0.0.1"
 port = 8080
 
 [provider]
-type = "openai"
+type = "openai"        # 或 "grok" / "chatgpt"
 api_key = "sk-your-api-key-here"
 base_url = "https://api.openai.com/v1"
 
@@ -93,22 +146,10 @@ default = "gpt-5.4"
 
 [models.mapping]
 "claude-sonnet-4-6" = "gpt-5.4"
-"claude-opus-4-6" = "gpt-5.4"
+"claude-opus-4-6"   = "gpt-5.4"
 ```
 
-#### 用于 ChatGPT Plus/Pro（OAuth）
-
-```toml
-[server]
-host = "127.0.0.1"
-port = 8080
-
-[provider]
-type = "chatgpt"
-
-[models]
-default = "gpt-5.4"
-```
+> **注意：** 在内部实现上，Adapter 会把新旧两种格式统一转换为同一种「多 Provider 结构」，可以按需逐步迁移。
 
 ### 3. 登录（仅限 ChatGPT 订阅用户）
 
@@ -298,7 +339,8 @@ curl http://127.0.0.1:8080/health
 
 ## 当前限制
 
-- 扩展思考块会转换为带 `<thinking>` 标签的文本。
+- 来自第三方 Anthropic 兼容 API 的 thinking 块会作为正式的 `thinking` 内容块通过 SSE 转发，  
+  具体是否显示由上游 UI 或工具决定，不再当作普通文本插入到最终回答中。
 - ChatGPT OAuth 使用与官方 Codex CLI 相同的流程，仅限个人使用。
 
 ## 项目结构
@@ -306,15 +348,15 @@ curl http://127.0.0.1:8080/health
 ```
 src/
 ├── main.rs                       # 入口、CLI 子命令、服务器启动
-├── config.rs                     # TOML 配置 + clap CLI 解析
-├── server.rs                     # Axum 路由处理、多供应商分派
+├── config.rs                     # TOML 配置 + clap CLI 解析，多 Provider 与模型路由
+├── server.rs                     # Axum 路由处理、多供应商分派与热重载
 ├── error.rs                      # 统一错误类型（Anthropic 格式）
 ├── auth/
 │   ├── oauth.rs                  # PKCE OAuth 流程（ChatGPT 登录）
 │   ├── callback_server.rs        # 本地 OAuth 回调服务器
 │   └── token_store.rs            # Token 持久化与过期检查
 ├── types/
-│   ├── anthropic.rs              # Anthropic API serde 类型
+│   ├── anthropic.rs              # Anthropic API serde 类型（请求 + 响应，含 thinking/tool_use/text）
 │   ├── openai.rs                 # OpenAI Chat Completions API serde 类型
 │   └── responses.rs              # OpenAI Responses API serde 类型
 ├── convert/
@@ -323,8 +365,9 @@ src/
 │   ├── request_responses.rs      # Anthropic → Responses API 请求转换
 │   └── response_responses.rs     # Responses API → Anthropic 响应转换
 └── providers/
-    ├── openai.rs                 # OpenAI/Grok HTTP 客户端（API 密钥）
-    └── chatgpt.rs                # ChatGPT Codex HTTP 客户端（OAuth）
+    ├── openai.rs                 # OpenAI/Grok/OpenAI 兼容 HTTP 客户端（Chat Completions）
+    ├── chatgpt.rs                # ChatGPT Codex HTTP 客户端（Responses API + OAuth）
+    └── anthropic.rs              # Anthropic 兼容 HTTP 客户端（Messages API 直通转发）
 ```
 
 ## 合规声明

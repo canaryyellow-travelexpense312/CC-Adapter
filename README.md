@@ -25,6 +25,7 @@ The adapter runs a local HTTP server that:
 - **Grok (xAI)** — via API key + Chat Completions API
 - **ChatGPT Plus/Pro** — via OAuth + Responses API (Codex backend)
 - **Any OpenAI-compatible API** — via API key
+- **Anthropic-compatible APIs** — same Messages API as Anthropic, different `base_url`
 
 **Supported features:**
 - Text messages and multi-turn conversations
@@ -75,9 +76,62 @@ The binary will be at `target/release/claude-adapter`.
 
 ### 2. Configure
 
-Edit `config.toml` or use CLI arguments / environment variables:
+You can configure **multiple providers at the same time** in `config.toml`, then route each Claude model name to a specific provider/model pair.
 
-#### For OpenAI / Grok (API Key)
+#### Multi-provider config (recommended, v0.3.0+)
+
+```toml
+[server]
+host = "127.0.0.1"
+port = 8080
+log_level = "info"
+log_file = "adapter.log"
+
+[providers.chatgpt]
+type = "chatgpt"
+# ChatGPT uses OAuth, no api_key/base_url needed
+
+[providers.openai-compatible]
+type = "openai"
+# API key (can also be set via ADAPTER_API_KEY)
+api_key = "sk-your-openai-or-grok-key"
+# Base URL for OpenAI-compatible API (OpenAI / Grok / others)
+base_url = "https://api.openai.com/v1"
+# Whether the backend returns streaming SSE (usually keep false and let Adapter simulate SSE)
+supports_streaming = false
+
+[providers.opencode-go-anthropic]
+type = "anthropic-compatible"
+api_key = "sk-your-key"
+# Base URL for Anthropic-compatible Messages API
+base_url = "https://opencode.ai/zen/go"
+# Most Anthropic-compatible backends support non-streaming JSON responses; keep false unless you know it's SSE-only
+supports_streaming = false
+
+[models]
+# Default provider/model when no routing match is found
+default_provider = "chatgpt"
+default_model = "gpt-5.4"
+
+# Routing table: Anthropic model name → provider + model
+# The adapter supports **longest-prefix matching** for model names that include a changing date suffix.
+# Example: key "claude-haiku-4-5" matches "claude-haiku-4-5-20251001"
+[models.routing]
+"claude-sonnet-4-6" = { provider = "openai-compatible", model = "gpt-4.1" }
+"claude-opus-4-6"   = { provider = "chatgpt",           model = "gpt-5.4" }
+"claude-haiku-4-5"  = { provider = "opencode-go-anthropic", model = "MiniMax-M2.5" }
+```
+
+Resolution rules for `models.routing`:
+
+1. Exact match on the full Anthropic model name (e.g. `"claude-opus-4-6"`).
+2. If no exact match, use the **longest prefix** key where `incoming_model.starts_with(key)`.  
+   This is ideal for models whose name includes a date suffix (e.g. `claude-haiku-4-5-20251001`).
+3. If still no match, fall back to `default_provider` + `default_model`.
+
+#### Legacy single-provider config (still supported)
+
+For simple setups you can still use the original single-`[provider]` + `models.mapping` format:
 
 ```toml
 [server]
@@ -85,7 +139,7 @@ host = "127.0.0.1"
 port = 8080
 
 [provider]
-type = "openai"
+type = "openai"        # or "grok" / "chatgpt"
 api_key = "sk-your-api-key-here"
 base_url = "https://api.openai.com/v1"
 
@@ -94,22 +148,10 @@ default = "gpt-5.4"
 
 [models.mapping]
 "claude-sonnet-4-6" = "gpt-5.4"
-"claude-opus-4-6" = "gpt-5.4"
+"claude-opus-4-6"   = "gpt-5.4"
 ```
 
-#### For ChatGPT Plus/Pro (OAuth)
-
-```toml
-[server]
-host = "127.0.0.1"
-port = 8080
-
-[provider]
-type = "chatgpt"
-
-[models]
-default = "gpt-5.4"
-```
+> **Note:** Internally, the adapter normalizes both formats into the same multi-provider structure, so you can safely migrate at your own pace.
 
 ### 3. Login (ChatGPT subscribers only)
 
@@ -299,7 +341,8 @@ curl http://127.0.0.1:8080/health
 
 ## Current Limitations
 
-- Extended Thinking blocks are converted to text with `<thinking>` tags.
+- Thinking blocks from third-party Anthropic-compatible APIs are forwarded as proper `thinking` content blocks in SSE.
+  - They are not shown as normal text, but some UIs or tools may choose to hide or ignore them.
 - ChatGPT OAuth uses the same flow as the official Codex CLI, for personal use only.
 
 ## Project Structure
@@ -307,15 +350,15 @@ curl http://127.0.0.1:8080/health
 ```
 src/
 ├── main.rs                       # Entry point, CLI subcommands, server startup
-├── config.rs                     # TOML config + clap CLI parsing
-├── server.rs                     # Axum route handlers, multi-provider dispatch
+├── config.rs                     # TOML config + clap CLI parsing, multi-provider & model routing
+├── server.rs                     # Axum route handlers, multi-provider dispatch & hot-reload
 ├── error.rs                      # Unified error types (Anthropic format)
 ├── auth/
 │   ├── oauth.rs                  # PKCE OAuth flow (ChatGPT login)
 │   ├── callback_server.rs        # Local OAuth callback server
 │   └── token_store.rs            # Token persistence and expiry check
 ├── types/
-│   ├── anthropic.rs              # Anthropic API serde types
+│   ├── anthropic.rs              # Anthropic API serde types (requests + responses, thinking/tool_use/text)
 │   ├── openai.rs                 # OpenAI Chat Completions API serde types
 │   └── responses.rs              # OpenAI Responses API serde types
 ├── convert/
@@ -324,8 +367,9 @@ src/
 │   ├── request_responses.rs      # Anthropic → Responses API request conversion
 │   └── response_responses.rs     # Responses API → Anthropic response conversion
 └── providers/
-    ├── openai.rs                 # OpenAI/Grok HTTP client (API key)
-    └── chatgpt.rs                # ChatGPT Codex HTTP client (OAuth)
+    ├── openai.rs                 # OpenAI/Grok/OpenAI-compatible HTTP client (Chat Completions)
+    ├── chatgpt.rs                # ChatGPT Codex HTTP client (Responses API + OAuth)
+    └── anthropic.rs              # Anthropic-compatible HTTP client (Messages API passthrough)
 ```
 
 ## Compliance Notice
