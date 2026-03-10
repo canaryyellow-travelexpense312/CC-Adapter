@@ -29,6 +29,11 @@ type = "chatgpt"
 # ChatGPT 使用 OAuth 認證，不需要 api_key 或 base_url
 # ChatGPT uses OAuth authentication, no api_key or base_url needed
 
+# （選用）第二個 ChatGPT 帳號：先執行 `claude-adapter login --name chatgpt2`
+# (Optional) Second ChatGPT account: run `claude-adapter login --name chatgpt2` first
+[providers.chatgpt2]
+type = "chatgpt"
+
 [providers.openai-compatible]
 type = "openai"
 # API 金鑰（也可透過環境變數 ADAPTER_API_KEY 設定，但僅作用於 default_provider）
@@ -75,6 +80,14 @@ default_model = "gpt-5.4"
 # it is recommended to use only the \"family\" prefix (e.g. claude-haiku-4-5) as the key;
 # the adapter will use longest-prefix matching to apply the routing to all dated variants.
 [models.routing]
-"claude-haiku-4-5" = { provider = "openai-compatible", model = "grok-4" }
 "claude-opus-4-6" = { provider = "chatgpt", model = "gpt-5.4" }
-"claude-haiku-4-5" =  { provider = "opencode-go-anthropic", model = "minimax-m2.5" }
+
+# 範例：使用第二個 ChatGPT 帳號（providers.chatgpt2）
+# Example: use second ChatGPT account (providers.chatgpt2)
+"claude-sonnet-4-6" = { provider = "chatgpt2", model = "gpt-5.3-codex" }
+
+# 範例：路由到 OpenAI 相容後端 / Example: route to an OpenAI-compatible backend
+"claude-haiku-4-5" = { provider = "openai-compatible", model = "grok-4" }
+
+# 範例：路由到 Anthropic 相容後端 / Example: route to an Anthropic-compatible backend
+# "claude-haiku-4-5" = { provider = "opencode-go-anthropic", model = "minimax-m2.5" }

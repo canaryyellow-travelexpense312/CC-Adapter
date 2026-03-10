@@ -164,9 +164,23 @@ If using a ChatGPT subscription, run the OAuth login flow first:
 This will:
 1. Open your browser to the OpenAI login page
 2. After login, automatically receive the OAuth token
-3. Save the token to `~/.claude-adapter/tokens.json`
+3. Save the token to `~/.claude-adapter/tokens-chatgpt.json` (legacy `tokens.json` is still supported)
 
 The token will be automatically refreshed when expired.
+
+#### Multiple ChatGPT accounts
+
+You can bind multiple ChatGPT accounts to different provider names:
+
+```bash
+# Default account -> [providers.chatgpt]
+./target/release/claude-adapter login
+
+# Second account -> [providers.chatgpt2]
+./target/release/claude-adapter login --name chatgpt2
+```
+
+Tokens are stored separately as `~/.claude-adapter/tokens-<name>.json`.
 
 ### 4. Run
 

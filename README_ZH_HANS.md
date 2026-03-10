@@ -162,9 +162,23 @@ default = "gpt-5.4"
 这会：
 1. 打开浏览器前往 OpenAI 登录页面
 2. 登录后自动接收 OAuth token
-3. 将 token 保存至 `~/.claude-adapter/tokens.json`
+3. 将 token 保存至 `~/.claude-adapter/tokens-chatgpt.json`（仍向后兼容旧的 `tokens.json`）
 
 Token 过期时会自动刷新。
+
+#### 多个 ChatGPT 账号
+
+你可以把不同的 ChatGPT 账号绑定到不同的 Provider 名称（对应 `config.toml` 的 `[providers.<name>]`）：
+
+```bash
+# 默认账号 -> [providers.chatgpt]
+./target/release/claude-adapter login
+
+# 第二个账号 -> [providers.chatgpt2]
+./target/release/claude-adapter login --name chatgpt2
+```
+
+每个账号的 token 会分别保存在 `~/.claude-adapter/tokens-<name>.json`。
 
 ### 4. 运行
 

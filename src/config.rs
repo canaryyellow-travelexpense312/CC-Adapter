@@ -26,11 +26,27 @@ pub enum Commands {
 
     /// 執行 ChatGPT OAuth 登入流程
     /// Run the ChatGPT OAuth login flow
-    Login,
+    Login(LoginArgs),
 
     /// 清除已儲存的 OAuth token
     /// Clear saved OAuth tokens
-    Logout,
+    Logout(LogoutArgs),
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct LoginArgs {
+    /// 要綁定到哪個 Provider 名稱（對應 config.toml 的 [providers.<name>]）
+    /// Provider name to bind this login to (matches [providers.<name>] in config.toml)
+    #[arg(long, default_value = "chatgpt")]
+    pub name: String,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct LogoutArgs {
+    /// 要清除哪個 Provider 名稱的 token（對應 config.toml 的 [providers.<name>]）
+    /// Provider name whose token should be cleared (matches [providers.<name>] in config.toml)
+    #[arg(long, default_value = "chatgpt")]
+    pub name: String,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -466,7 +482,10 @@ impl Config {
         // If there's exactly one provider missing a key, try OAuth auto-switch (preserves legacy behavior)
         if config.providers.len() == 1 && missing_keys.len() == 1 {
             let has_tokens = dirs::home_dir()
-                .map(|h| h.join(".claude-adapter").join("tokens.json").exists())
+                .map(|h| {
+                    let dir = h.join(".claude-adapter");
+                    dir.join("tokens.json").exists() || dir.join("tokens-chatgpt.json").exists()
+                })
                 .unwrap_or(false);
 
             if has_tokens {

@@ -5,3 +5,4 @@ Cargo.lockdist/
 /dist
 Cargo.lock
 /.omc
+/.claude

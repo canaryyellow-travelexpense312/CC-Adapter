@@ -105,6 +105,16 @@ After saving config, if using ChatGPT, run the OAuth login:
 claude-adapter login
 ```
 
+If the user wants multiple ChatGPT accounts, bind them by name:
+
+```bash
+# Default account -> [providers.chatgpt]
+claude-adapter login
+
+# Second account -> [providers.chatgpt2]
+claude-adapter login --name chatgpt2
+```
+
 ### Option D: Any OpenAI-compatible API
 
 ```toml

@@ -15,7 +15,7 @@ use tower_http::trace::TraceLayer;
 use tracing::info;
 use tracing_subscriber::prelude::*;
 
-use config::{Cli, Commands, ServeArgs};
+use config::{Cli, Commands, LoginArgs, LogoutArgs, ServeArgs};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -62,8 +62,8 @@ async fn main() -> anyhow::Result<()> {
     }
 
     match cli.command {
-        Some(Commands::Login) => run_login().await,
-        Some(Commands::Logout) => run_logout(),
+        Some(Commands::Login(args)) => run_login(args).await,
+        Some(Commands::Logout(args)) => run_logout(args),
         Some(Commands::Serve(args)) => run_serve(args).await,
         // 未指定子命令時預設啟動伺服器
         // Default to serve when no subcommand is given
@@ -166,9 +166,12 @@ fn ensure_claude_onboarding() {
 
 /// 執行 OAuth 登入流程
 /// Run the OAuth login flow
-async fn run_login() -> anyhow::Result<()> {
+async fn run_login(args: LoginArgs) -> anyhow::Result<()> {
+    let provider_name = args.name;
     println!("正在啟動 ChatGPT OAuth 登入流程...");
     println!("Starting ChatGPT OAuth login flow...\n");
+    println!("綁定 Provider 名稱 / Binding provider name: {}", provider_name);
+    println!();
 
     let pkce = auth::oauth::generate_pkce();
     let state = auth::oauth::generate_state();
@@ -192,7 +195,7 @@ async fn run_login() -> anyhow::Result<()> {
     println!("Received authorization code, exchanging for token...\n");
 
     let token_data = auth::oauth::exchange_code(&auth_code.code, &pkce.verifier).await?;
-    auth::token_store::save(&token_data)?;
+    auth::token_store::save_named(&provider_name, &token_data)?;
 
     match auth::oauth::extract_account_id(&token_data.access_token) {
         Ok(account_id) => {
@@ -205,8 +208,14 @@ async fn run_login() -> anyhow::Result<()> {
         }
     }
 
-    println!("Token 已儲存至 ~/.claude-adapter/tokens.json");
-    println!("Token saved to ~/.claude-adapter/tokens.json\n");
+    println!(
+        "Token 已儲存至 ~/.claude-adapter/tokens-{}.json",
+        provider_name
+    );
+    println!(
+        "Token saved to ~/.claude-adapter/tokens-{}.json\n",
+        provider_name
+    );
     println!("現在可以使用 `claude-adapter serve` 或 `claude-adapter` 啟動伺服器。");
     println!("You can now start the server with `claude-adapter serve` or `claude-adapter`.");
 
@@ -215,10 +224,11 @@ async fn run_login() -> anyhow::Result<()> {
 
 /// 清除已儲存的 OAuth token
 /// Clear saved OAuth tokens
-fn run_logout() -> anyhow::Result<()> {
-    auth::token_store::delete()?;
-    println!("已清除 OAuth token。");
-    println!("OAuth token cleared.");
+fn run_logout(args: LogoutArgs) -> anyhow::Result<()> {
+    let provider_name = args.name;
+    auth::token_store::delete_named(&provider_name)?;
+    println!("已清除 OAuth token（{}）。", provider_name);
+    println!("OAuth token cleared ({}).", provider_name);
     Ok(())
 }
 

@@ -1,3 +1,17 @@
+## v0.4.0
+
+### 變更紀錄（繁體中文）
+
+- **ChatGPT 多帳號支援**：`login/logout` 新增 `--name`（預設 `chatgpt`），可用 `claude-adapter login --name chatgpt2` 新增第二個帳號，並在 `config.toml` 中以 `[providers.chatgpt2]` 使用。
+- **Token 依 Provider 名稱分檔保存**：OAuth token 會保存到 `~/.claude-adapter/tokens-<name>.json`（例如 `tokens-chatgpt2.json`），`chatgpt` 仍向後相容讀取舊的 `tokens.json`。
+
+---
+
+### Change Log (English)
+
+- **Multiple ChatGPT accounts**: `login/logout` now support `--name` (default `chatgpt`). Use `claude-adapter login --name chatgpt2` to add a second account and reference it via `[providers.chatgpt2]` in `config.toml`.
+- **Per-provider token files**: OAuth tokens are stored as `~/.claude-adapter/tokens-<name>.json` (e.g. `tokens-chatgpt2.json`). The default `chatgpt` provider remains backward compatible with the legacy `tokens.json`.
+
 ## v0.3.0
 
 ### 變更紀錄（繁體中文）

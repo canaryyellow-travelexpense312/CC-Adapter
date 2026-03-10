@@ -44,7 +44,7 @@ async fn build_providers(config: &Config) -> anyhow::Result<HashMap<String, Prov
     for (name, provider_config) in &config.providers {
         let kind = match provider_config.provider_type.as_str() {
             "chatgpt" => {
-                let chatgpt = ChatGPTProvider::new().await?;
+                let chatgpt = ChatGPTProvider::new(name).await?;
                 ProviderKind::ChatGPT(chatgpt)
             }
             "anthropic-compatible" => {

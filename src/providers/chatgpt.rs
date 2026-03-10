@@ -15,13 +15,14 @@ pub struct ChatGPTProvider {
     client: Client,
     token: RwLock<TokenData>,
     account_id: RwLock<String>,
+    token_name: String,
 }
 
 impl ChatGPTProvider {
     /// 建構 ChatGPTProvider，從 token store 載入認證資訊
     /// Construct ChatGPTProvider, loading auth info from token store
-    pub async fn new() -> Result<Self> {
-        let token_data = token_store::load()?
+    pub async fn new(name: &str) -> Result<Self> {
+        let token_data = token_store::load_named(name)?
             .context(
                 "未找到 OAuth token，請先執行 `claude-adapter login` / \
                  No OAuth token found, please run `claude-adapter login` first",
@@ -46,6 +47,7 @@ impl ChatGPTProvider {
             client: Client::new(),
             token: RwLock::new(token_data),
             account_id: RwLock::new(account_id),
+            token_name: name.to_string(),
         })
     }
 
@@ -64,7 +66,7 @@ impl ChatGPTProvider {
         let current = self.token.read().await.clone();
         let new_token = oauth::refresh_token(&current.refresh_token).await?;
 
-        token_store::save(&new_token)?;
+        token_store::save_named(&self.token_name, &new_token)?;
 
         if let Ok(new_account_id) = oauth::extract_account_id(&new_token.access_token) {
             *self.account_id.write().await = new_account_id;
