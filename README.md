@@ -1,7 +1,6 @@
 # Claude API Adapter
 
-[繁中版](README_ZH_HANT.md)
-[簡中版](README_ZH_HANS.md)
+[繁中版](README_ZH_HANT.md) | [簡中版](README_ZH_HANS.md) | [日本語](README_JA.md)
 
 A Rust-based API adapter that lets **Claude Code** use other LLM providers (OpenAI, Grok/xAI, ChatGPT Plus/Pro) by translating between Anthropic's Messages API and provider-specific API formats.
 
