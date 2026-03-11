@@ -137,6 +137,8 @@ pub struct ResponsesResponse {
     #[allow(dead_code)]
     pub id: String,
     pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub incomplete_details: Option<IncompleteDetails>,
     #[allow(dead_code)]
     pub model: String,
     #[serde(default)]
@@ -145,8 +147,13 @@ pub struct ResponsesResponse {
     pub usage: Option<ResponsesUsage>,
 }
 
-/// 輸出項目：訊息、函式呼叫或其他（reasoning 等）
-/// Output item: message, function call, or other (reasoning, etc.)
+/// Incomplete response details
+#[derive(Debug, Clone, Deserialize)]
+pub struct IncompleteDetails {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
 pub enum OutputItem {
@@ -187,6 +194,12 @@ pub enum OutputContent {
     Unknown,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct TokenDetails {
+    #[serde(default)]
+    pub cached_tokens: u32,
+}
+
 /// Responses API 使用量統計
 /// Responses API usage statistics
 #[derive(Debug, Clone, Deserialize)]
@@ -198,4 +211,12 @@ pub struct ResponsesUsage {
     #[allow(dead_code)]
     #[serde(default)]
     pub total_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_tokens_details: Option<TokenDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_tokens_details: Option<TokenDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_read_input_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_creation_input_tokens: Option<u32>,
 }

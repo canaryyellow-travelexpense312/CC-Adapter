@@ -120,9 +120,7 @@ fn convert_assistant_blocks(blocks: &[ContentBlock], out: &mut Vec<InputItem>) -
                     call_id: id.clone(),
                 });
             }
-            ContentBlock::Thinking { thinking, .. } => {
-                text_parts.push(format!("<thinking>{}</thinking>", thinking));
-            }
+            ContentBlock::Thinking { .. } => {}
             _ => {}
         }
     }
@@ -327,5 +325,48 @@ mod tests {
         // Should produce: user message, assistant message, function_call, function_call_output
         assert_eq!(result.input.len(), 4);
         assert!(result.tools.is_some());
+    }
+
+    #[test]
+    fn test_thinking_blocks_are_dropped() {
+        let req = MessagesRequest {
+            model: "claude-sonnet-4-6".to_string(),
+            max_tokens: 1024,
+            messages: vec![Message {
+                role: "assistant".to_string(),
+                content: MessageContent::Blocks(vec![
+                    ContentBlock::Text {
+                        text: "Visible text".to_string(),
+                    },
+                    ContentBlock::Thinking {
+                        thinking: "internal reasoning".to_string(),
+                        signature: None,
+                    },
+                ]),
+            }],
+            system: None,
+            tools: None,
+            tool_choice: None,
+            stream: None,
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            stop_sequences: None,
+            metadata: None,
+        };
+
+        let result = convert_request_to_responses(req, "gpt-5-codex").unwrap();
+
+        assert_eq!(result.input.len(), 1);
+        match &result.input[0] {
+            InputItem::Message { role, content } => {
+                assert_eq!(role, "assistant");
+                match content {
+                    InputContent::Text(text) => assert_eq!(text, "Visible text"),
+                    _ => panic!("expected text content"),
+                }
+            }
+            _ => panic!("expected message input item"),
+        }
     }
 }

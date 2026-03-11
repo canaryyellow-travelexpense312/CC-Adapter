@@ -147,6 +147,7 @@ fn try_reconstruct_from_events(sse_text: &str) -> Option<ResponsesResponse> {
             response_id
         },
         status: "completed".to_string(),
+        incomplete_details: None,
         model,
         output: output_items,
         usage,
@@ -203,14 +204,21 @@ fn convert_parsed_response(
         });
     }
 
-    let stop_reason = convert_status_to_stop_reason(&resp.status, &content);
+    let stop_reason = convert_status_to_stop_reason(
+        &resp.status,
+        resp.incomplete_details.as_ref().and_then(|d| d.reason.as_deref()),
+        &content,
+    );
 
     let usage = match &resp.usage {
         Some(u) => Usage {
             input_tokens: u.input_tokens,
             output_tokens: u.output_tokens,
-            cache_creation_input_tokens: None,
-            cache_read_input_tokens: None,
+            cache_creation_input_tokens: u.cache_creation_input_tokens,
+            cache_read_input_tokens: u
+                .cache_read_input_tokens
+                .or_else(|| u.input_tokens_details.as_ref().map(|d| d.cached_tokens))
+                .or_else(|| u.prompt_tokens_details.as_ref().map(|d| d.cached_tokens)),
         },
         None => Usage {
             input_tokens: 0,
@@ -236,7 +244,11 @@ fn convert_parsed_response(
 
 /// 將 Responses API status 映射為 Anthropic stop_reason
 /// Map Responses API status to Anthropic stop_reason
-fn convert_status_to_stop_reason(status: &str, content: &[ResponseContentBlock]) -> String {
+fn convert_status_to_stop_reason(
+    status: &str,
+    incomplete_reason: Option<&str>,
+    content: &[ResponseContentBlock],
+) -> String {
     let has_tool_use = content.iter().any(|b| matches!(b, ResponseContentBlock::ToolUse { .. }));
 
     if has_tool_use {
@@ -245,9 +257,12 @@ fn convert_status_to_stop_reason(status: &str, content: &[ResponseContentBlock])
 
     match status {
         "completed" => "end_turn".to_string(),
-        "incomplete" | "truncated" => "max_tokens".to_string(),
+        "incomplete" | "truncated" => match incomplete_reason {
+            Some("max_output_tokens") | Some("max_tokens") | None => "max_tokens".to_string(),
+            _ => "end_turn".to_string(),
+        },
         "cancelled" => "end_turn".to_string(),
-        other => other.to_string(),
+        _ => "end_turn".to_string(),
     }
 }
 
@@ -274,15 +289,18 @@ data: {"type":"response.completed","response":{"id":"resp_abc","status":"complet
     }
 
     #[test]
-    fn test_parse_function_call() {
+    fn test_incomplete_response_maps_cache_tokens_and_stop_reason() {
         let sse = r#"event: response.completed
-data: {"type":"response.completed","response":{"id":"resp_xyz","status":"completed","model":"gpt-5-codex","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Let me check."}]},{"type":"function_call","name":"get_weather","arguments":"{\"location\":\"SF\"}","call_id":"call_001"}],"usage":{"input_tokens":50,"output_tokens":20,"total_tokens":70}}}
+data: {"type":"response.completed","response":{"id":"resp_incomplete","status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"model":"gpt-5-codex","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Partial answer"}]}],"usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150,"input_tokens_details":{"cached_tokens":25},"cache_creation_input_tokens":10}}}
 
 "#;
 
         let result = convert_responses_to_anthropic(sse, "claude-sonnet-4-6").unwrap();
 
-        assert_eq!(result.stop_reason.as_deref(), Some("tool_use"));
-        assert_eq!(result.content.len(), 2);
+        assert_eq!(result.stop_reason.as_deref(), Some("max_tokens"));
+        assert_eq!(result.usage.input_tokens, 100);
+        assert_eq!(result.usage.output_tokens, 50);
+        assert_eq!(result.usage.cache_read_input_tokens, Some(25));
+        assert_eq!(result.usage.cache_creation_input_tokens, Some(10));
     }
 }

@@ -6,6 +6,7 @@
 - **自動退回 polling**：若檔案監控器在目前環境無法啟動或無法監控目錄，會自動退回原本的 polling 模式。
 - **更完整的 graceful shutdown**：伺服器現在同時處理 `SIGINT`（Ctrl+C）與 `SIGTERM`，並在關閉時通知背景 watcher 停止，讓 `~/.claude/settings.json` 的還原更可靠。
 - **標記舊 token store API 為 deprecated**：舊的 `save/load/delete` 介面保留向後相容，但現在會明確提示改用 `save_named/load_named/delete_named`。
+- **ChatGPT Responses 轉換更貼近 Anthropic 語義**：`thinking` 區塊不再當作普通文字轉送，並補上 `incomplete_details.reason` 與 cache token 使用量映射，讓 `stop_reason` 與 usage 統計更準確。
 
 ---
 
@@ -15,6 +16,7 @@
 - **Automatic polling fallback**: if the filesystem watcher cannot start or cannot watch the target directory in the current environment, the adapter automatically falls back to the original polling mode.
 - **More complete graceful shutdown**: the server now handles both `SIGINT` (Ctrl+C) and `SIGTERM`, and notifies the background watcher to stop during shutdown so restoring `~/.claude/settings.json` is more reliable.
 - **Legacy token store APIs are now deprecated**: the old `save/load/delete` helpers remain for backward compatibility, but now explicitly point users to `save_named/load_named/delete_named`.
+- **ChatGPT Responses conversion now matches Anthropic semantics more closely**: `thinking` blocks are no longer forwarded as plain text, and `incomplete_details.reason` plus cache token usage are now mapped back so `stop_reason` and usage statistics are more accurate.
 
 ## v0.4.0
 
