@@ -1,3 +1,15 @@
+## v0.5.1
+
+### 變更紀錄（繁體中文）
+
+- **日誌檔案寫入開關**：`config.toml` 的 `[server]` 區段新增 `log_file_enabled`（預設 `true`）。設為 `false` 時，即使有設定 `log_file` 也不會寫入檔案，僅輸出到 console。
+
+---
+
+### Change Log (English)
+
+- **Log file write toggle**: Added `log_file_enabled` (default `true`) under `[server]` in `config.toml`. When set to `false`, logs are not written to file even if `log_file` is set; output goes to console only.
+
 ## v0.5.0
 
 ### 變更紀錄（繁體中文）

@@ -88,6 +88,7 @@ host = "127.0.0.1"
 port = 8080
 log_level = "info"
 log_file = "adapter.log"
+# log_file_enabled = true   # false にするとログをファイルに書き出さない（既定: true）
 
 [providers.chatgpt]
 type = "chatgpt"

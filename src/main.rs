@@ -111,7 +111,22 @@ fn resolve_log_file(cli: &Cli) -> Option<String> {
         _ => return None,
     };
 
-    config::Config::peek_log_file(&config_path)
+    // 先讀取 log_file 路徑，沒有就直接視為關閉
+    // Read log_file path first; if not set, treat as disabled
+    let log_file = match config::Config::peek_log_file(&config_path) {
+        Some(path) => path,
+        None => return None,
+    };
+
+    // 檢查是否有明確關閉檔案日誌
+    // Check whether file logging is explicitly disabled
+    if let Some(enabled) = config::Config::peek_log_file_enabled(&config_path) {
+        if !enabled {
+            return None;
+        }
+    }
+
+    Some(log_file)
 }
 
 /// 確保 Claude Code 的 onboarding 已略過（修改 ~/.claude.json）

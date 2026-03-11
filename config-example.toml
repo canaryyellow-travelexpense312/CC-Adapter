@@ -9,6 +9,9 @@ log_level = "info"
 # 日誌檔案路徑（選填）：設定後日誌會同時寫入此檔案，適合 debug 等級時保存完整內容
 # Log file path (optional): when set, logs are also written to this file — useful for preserving full debug output
 log_file = "adapter.log"
+# 是否啟用寫入日誌檔案（預設 true）：設為 false 時，即使有設定 log_file 也不會寫入檔案
+# Whether to enable writing logs to file (default true): when false, logs are not written to file even if log_file is set
+log_file_enabled = false
 
 # ---------------------------------------------------------------------------
 # 供應商配置 / Provider configuration

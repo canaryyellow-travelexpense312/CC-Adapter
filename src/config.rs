@@ -116,10 +116,19 @@ pub struct ServerConfig {
     #[serde(default)]
     #[allow(dead_code)]
     pub log_file: Option<String>,
+    /// 是否啟用寫入日誌檔案（預設為啟用）
+    /// Whether to enable writing logs to file (enabled by default)
+    #[serde(default = "default_log_file_enabled")]
+    #[allow(dead_code)]
+    pub log_file_enabled: bool,
 }
 
 fn default_log_level() -> String {
     "info".to_string()
+}
+
+fn default_log_file_enabled() -> bool {
+    true
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -264,6 +273,17 @@ impl Config {
             .map(|s| s.to_string())
     }
 
+    /// 從配置檔中快速讀取 log_file_enabled（不需要完整驗證 config）
+    /// Quickly read log_file_enabled from config file (without full config validation)
+    pub fn peek_log_file_enabled(config_path: &std::path::Path) -> Option<bool> {
+        let content = std::fs::read_to_string(config_path).ok()?;
+        let table: toml::Table = toml::from_str(&content).ok()?;
+        table
+            .get("server")?
+            .get("log_file_enabled")?
+            .as_bool()
+    }
+
     /// 載入配置：依序從配置檔、環境變數、CLI 參數合併設定
     /// Load config: merge settings from config file, environment variables, and CLI arguments
     pub fn load(args: &ServeArgs) -> Result<Self> {
@@ -282,6 +302,7 @@ impl Config {
                     port: 8080,
                     log_level: "info".to_string(),
                     log_file: None,
+                    log_file_enabled: true,
                 },
                 providers: HashMap::new(),
                 models: ModelsConfig {

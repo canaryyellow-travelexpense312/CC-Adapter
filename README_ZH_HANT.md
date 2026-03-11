@@ -85,6 +85,7 @@ host = "127.0.0.1"
 port = 8080
 log_level = "info"
 log_file = "adapter.log"
+# log_file_enabled = true   # 設為 false 可關閉寫入日誌檔案（預設 true）
 
 [providers.chatgpt]
 type = "chatgpt"
